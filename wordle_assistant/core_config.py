@@ -7,4 +7,5 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 TEST_MODE = False  # Change to True when testing
 
 # Variables
-COMMON_WORDS = os.path.join(DATA_DIR, "test_words.txt" if TEST_MODE else "common_words.txt")
+WORDLE_COMMON_WORDS = os.path.join(DATA_DIR, "wordle_common_words.csv")
+WORDLE_VALID_WORDS = os.path.join(DATA_DIR, "wordle_valid_words.csv")

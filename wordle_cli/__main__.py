@@ -1,63 +1,55 @@
-from wordle_assistant.core import wordle_filter, load_word_list
+from wordle_assistant.core import create_word_df
+from wordle_assistant.game_manager import GameManager
 
+def get_valid_guess():
+    """Prompt the user for a valid 5-letter word guess."""
+    while True:
+        guess = input("Enter your 5-letter guess: ").strip().lower()
+        if len(guess) == 5 and guess.isalpha():
+            return guess
+        print("Invalid guess. Please enter a 5-letter word.")
 
-def parse_feedback(feedback: str) -> tuple[int, int, int, int, int]:
-    """
-    Converts user-friendly feedback ('x', '!', '?') into the tuple format (0,1,2).
-    Expected input format: A 5-character string containing only 'x', '!', or '?'.
-    """
-    symbol_map = {'x': 0, '!': 1, '?': 2}
-    
-    if len(feedback) != 5 or not all(c in symbol_map for c in feedback):
-        raise ValueError("Feedback must be a 5-character string containing only 'x', '!', or '?'.")
-    
-    return tuple(symbol_map[c] for c in feedback)
+def handle_game_response(response):
+    """Print feedback and return whether the game should continue."""
+    if "error" in response:
+        print(response["error"])
+        return False
 
-def interactive_mode():
-    """
-    Runs an interactive session where the player keeps refining guesses.
-    """
-    df = load_word_list()  # ✅ Load word list only when needed
+    print("Feedback:", response["feedback"])
     
-    print("\n🔠 Welcome to Wordle Assistant!")
-    print("Enter your 5-letter guess followed by feedback (e.g., 'slate x!?x?').")
-    print("Feedback format:")
-    print("  x = Gray (letter is NOT in the word)")
-    print("  ! = Green (letter is correct and in the RIGHT position)")
-    print("  ? = Yellow (letter is correct but in the WRONG position)")
-    print("Type 'quit' to exit at any time.\n")
+    remaining_words = [word_data["word"] for word_data in response["remaining_words"]]
+    print(f"Remaining possible words ({len(remaining_words)}): {', '.join(remaining_words)}")
+    
+    if response["status"] == "won":
+        print("Congratulations! You guessed the word!")
+        return False
+    elif response["status"] == "lost":
+        print(f"Game over! The word was {response['secret_word']}")
+        return False
+
+    return True
+
+def main():
+    word_list = create_word_df()
+    game_manager = GameManager(word_list)
+    
+    print("Welcome to Wordle!")
+    user_id = input("Enter your unique user ID: ").strip()
+    
+    start_response = game_manager.start_new_game(user_id)
+    if "error" in start_response:
+        print(start_response["error"])
+        return
+    
+    print("A new game has started! Try to guess the 5-letter word.")
 
     while True:
-        user_input = input("Enter guess and feedback (or 'quit' to exit): ").strip().lower()
-
-        if user_input == "quit":
-            print("👋 Exiting Wordle Assistant. Goodbye!")
+        guess = get_valid_guess()
+        response = game_manager.make_guess(user_id, guess)
+        if not handle_game_response(response):
             break
 
-        try:
-            guess, feedback_str = user_input.split()
-            feedback = parse_feedback(feedback_str)
-        except ValueError:
-            print("❌ Invalid input! Enter in format: <guess> <feedback> (e.g., 'slate x!?x?')")
-            continue
-
-        if len(guess) != 5 or not guess.isalpha():
-            print("❌ Error: Guess must be a 5-letter word.")
-            continue
-
-        # Apply filtering
-        df = wordle_filter(df, guess, feedback)
-
-        # Display remaining words
-        if df.empty:
-            print("⚠️ No words found. Try a different approach!")
-        elif len(df) == 1:
-            print(f"🎉 The solution is: {df.iloc[0]['word']}! You got it!")
-            break
-        else:
-            print(f"🔎 {len(df)} possible words remaining:")
-            print(", ".join(df['word'].head(10)))  # Show only first 10 words for readability
-            print("...") if len(df) > 10 else None
+    print("Thanks for playing!")
 
 if __name__ == "__main__":
-    interactive_mode()
+    main()
