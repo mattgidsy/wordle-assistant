@@ -102,4 +102,56 @@ def wordle_filter(
     return filtered_df
 
 
+def get_possible_words(word_list_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns a DataFrame of words that have not been eliminated.
+
+    Args:
+      word_list_df (pd.DataFrame): The word list DataFrame.
+
+    Returns:
+      pd.DataFrame: A filtered DataFrame of possible words.
+    """
+    return word_list_df[word_list_df["eliminated"] == False]
+
+
+def get_possible_common(word_list_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns a DataFrame of common words that have not been eliminated.
+
+    Args:
+      word_list_df (pd.DataFrame): The word list DataFrame.
+
+    Returns:
+      pd.DataFrame: A filtered DataFrame of possible common words.
+    """
+    return word_list_df[(word_list_df["eliminated"] == False) & (word_list_df["rarity"] == "common")]
+
+def sort_words(word_list_df: pd.DataFrame, by: str = "alphabetical", ascending: bool = True) -> pd.DataFrame:
+    """
+    Sorts the word list DataFrame based on a given criterion.
+
+    Args:
+      word_list_df (pd.DataFrame): The DataFrame containing the word list.
+      by (str): Sorting criterion. Options: "alphabetical", "rarity".
+      ascending (bool): Whether to sort in ascending order. Defaults to True.
+
+    Returns:
+      pd.DataFrame: The sorted DataFrame.
+    """
+    if by == "alphabetical":
+        return word_list_df.sort_values(by="word", ascending=ascending).reset_index(drop=True)
+    elif by == "rarity":
+        # Sorting rarity: common first, then uncommon, then alphabetically
+        rarity_order = {"common": 0, "uncommon": 1}
+        
+        # Use `.assign()` to avoid modifying a slice and ensure it's a copy
+        sorted_df = word_list_df.assign(
+            rarity_order=word_list_df["rarity"].map(rarity_order)
+        ).sort_values(by=["rarity_order", "word"], ascending=[True, ascending]).drop(columns=["rarity_order"]).reset_index(drop=True)
+        
+        return sorted_df
+    else:
+        print(f"Warning: Invalid sorting criteria '{by}', defaulting to alphabetical.")
+        return word_list_df.sort_values(by="word", ascending=ascending).reset_index(drop=True)
 
