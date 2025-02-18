@@ -4,7 +4,7 @@ def test_create_word_df():
     """
     Test function to load the word DataFrame and display it.
     """
-    df = create_word_df()
+    df = create_words_df()
     
     if df.empty:
         print("Error: DataFrame is empty. Check file paths and content.")

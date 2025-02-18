@@ -1,12 +1,12 @@
 import pandas as pd
-from game_manager import WordleUser
 from typing import *
 from wordle_assistant import core_config as config 
 
 
-def create_word_df():
+def create_words_df():
     """
     Loads and merges two word lists into a single Pandas DataFrame with metadata.
+    
     Dataframe Schema:
     [index][word][rarity][valid][eliminated][rank][letter_freq]
     """
@@ -62,7 +62,7 @@ def wordle_filter(
     word_list_df: pd.DataFrame, 
     guesses: List[str] = None, 
     letter_states: List[Tuple[int, int, int, int, int]] = None, 
-    user: WordleUser = None
+    user = None 
 ) -> pd.DataFrame:
     """
     Filters the word list based on either a WordleUser instance or separate guess/letter state inputs.
@@ -81,6 +81,7 @@ def wordle_filter(
     """
     # Ensure user does not modify parameters in place
     if user:
+        from wordle_assistant.game_manager import WordleUser
         guesses = list(user.guesses) if user.guesses else []
         letter_states = list(user.letter_states) if user.letter_states else []
 

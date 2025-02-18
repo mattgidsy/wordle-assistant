@@ -1,88 +1,98 @@
-from wordle_assistant.core import wordle_filter
-from typing import Dict, Optional, List
-import random
 import pandas as pd
+from typing import List, Tuple, Dict
+from wordle_assistant.core import wordle_filter, create_words_df
+
 
 class WordleUser:
-    def __init__(self):
-        self.guesses = []
-        self.letter_states = []
-
-# ---- Old Implementation ---- 
-
-class User:
-    def __init__(self, user_id: str, word_list: pd.DataFrame):
-        self.user_id = user_id
-        self.games_played = 0
-        self.games_won = 0
-        self.word_list = word_list
-        self.current_game: Optional['GameSession'] = None
-    
-    def start_game(self, secret_word: str):
-        self.current_game = GameSession(self.user_id, secret_word, self.word_list.copy())
-        self.games_played += 1
-    
-    def end_game(self, won: bool):
-        if won:
-            self.games_won += 1
-        self.current_game = None
-
-
-class GameSession:
-    def __init__(self, user_id: str, secret_word: str, df: pd.DataFrame):
-        self.user_id = user_id
-        self.secret_word = secret_word.lower()
-        self.df = df  # Store filtered words instead of copying each time
+    def __init__(self, username: str):
+        self.username = username
         self.guesses: List[str] = []
-        self.is_active = True
-    
-    def make_guess(self, guess: str) -> Dict[str, any]:
-        if not self.is_active:
-            return {"error": "Game is not active."}
-        
+        self.letter_states: List[Tuple[int, int, int, int, int]] = []
+        self.completed = False
+        self.word_found = False
+        self.word_list_df = create_words_df()  # Each user has their own word list
+        self.answer = None 
+
+    def add_guess(self, guess: str, letter_state: Tuple[int, int, int, int, int]):
+        """
+        Adds a guess and its corresponding letter states.
+        """
         self.guesses.append(guess)
-        letters_state = self.evaluate_guess(guess)
-        self.df = wordle_filter(self.df, guess, letters_state, self.guesses)
-        
-        return {
-            "user_id": self.user_id,
-            "guess": guess,
-            "feedback": letters_state,
-            "remaining_words": self.df.to_dict(orient='records'),
-            "status": "won" if guess == self.secret_word else "lost" if len(self.guesses) >= 6 else "ongoing",
-            "secret_word": self.secret_word if not self.is_active else None
-        }
+        self.letter_states.append(letter_state)
+        self.filter_word_list()  # Update their word list after each guess
     
-    def evaluate_guess(self, guess: str) -> List[int]:
-        return [
-            1 if guess[i] == self.secret_word[i] else 2 if guess[i] in self.secret_word else 0
-            for i in range(len(guess))
-        ]
-        
-class GameManager:
-    def __init__(self, word_list: pd.DataFrame):
-        self.word_list = word_list
-        self.active_games: Dict[str, User] = {}
+    def filter_word_list(self):
+        """
+        Updates the possible word list based on the user's guesses and feedback.
+        """
+        self.word_list_df = wordle_filter(self.word_list_df, user=self)
+
+    def mark_completed(self, word_found: bool):
+        """
+        Marks the game as completed for the user.
+        """
+        self.completed = True
+        self.word_found = word_found
     
-    def start_new_game(self, user_id: str) -> Dict[str, any]:
-        if user_id in self.active_games and self.active_games[user_id].current_game:
-            return {"error": "User already has an active game."}
+
+class WordleGame:
+    def __init__(self):
+        """
+        Initializes a new Wordle game where each user has their own answer.
+        """
+        self.users: Dict[str, WordleUser] = {}
+        self.active = True
+
+    def choose_random_answer(self) -> str:
+        """
+        Selects a random common word from the default word list and returns it.
+        """
+        word_list_df = create_words_df()
+        return word_list_df[word_list_df["rarity"] == "common"].sample(n=1)["word"].values[0]
+
+    def add_user(self, username: str):
+        """
+        Adds a new user to the game with their own word list and assigns them a random answer.
+        """
+        if username not in self.users:
+            self.users[username] = WordleUser(username)
+            self.users[username].answer = self.choose_random_answer()
+
+    def process_guess_feedback(self, username: str, guess: str) -> Tuple[int, int, int, int, int]:
+        """
+        Processes a user's guess and returns letter states feedback.
+        """
+        if username not in self.users:
+            raise ValueError("User not found in the game.")
+        user = self.users[username]
+        if not user.answer:
+            raise ValueError("No answer has been set for this user.")
+
+        guess = guess.lower()
+        letter_state = []
+        for i, letter in enumerate(guess):
+            if letter == user.answer[i]:
+                letter_state.append(1)  # Green (correct position)
+            elif letter in user.answer:
+                letter_state.append(2)  # Yellow (wrong position)
+            else:
+                letter_state.append(0)  # Gray (not in word)
+        letter_state_tuple = tuple(letter_state)
         
-        secret_word = random.choice(self.word_list["word"].tolist())
-        user = self.active_games.get(user_id, User(user_id, self.word_list))
-        user.start_game(secret_word)
-        self.active_games[user_id] = user
+        user.add_guess(guess, letter_state_tuple)
         
-        return {"user_id": user_id, "secret_word": secret_word}
+        if guess == user.answer:
+            user.mark_completed(word_found=True)
+        elif len(user.guesses) >= 6:
+            user.mark_completed(word_found=False)
+
+        return letter_state_tuple
     
-    def make_guess(self, user_id: str, guess: str) -> Dict[str, any]:
-        user = self.active_games.get(user_id)
-        if not user or not user.current_game:
-            return {"error": "No active game for user."}
-        
-        result = user.current_game.make_guess(guess)
-        
-        if result["status"] in ["won", "lost"]:
-            user.end_game(won=(result["status"] == "won"))
-        
-        return result
+    def check_game_status(self) -> bool:
+        """
+        Checks if all players have completed their games.
+        """
+        if all(user.completed for user in self.users.values()):
+            self.active = False
+        return self.active
+
