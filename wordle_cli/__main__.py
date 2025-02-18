@@ -21,11 +21,10 @@ def main():
 
     while game.active and not game.users[username].completed:
       guess = input("Enter your guess: ").strip().lower()
-    
+     
       if len(guess) != 5:
           print("Invalid guess. Please enter a 5-letter word.")
           continue
-
       if args.mode == "blind":
           feedback = input("Enter feedback (0 = Gray, 1 = Green, 2 = Yellow, exactly 5 numbers): ")
           if len(feedback) != 5 or not feedback.isdigit():
@@ -38,8 +37,7 @@ def main():
 
       # Display feedback
       display_feedback(letter_state)
-
-      # Automatically display sorted words (common first, then truncated uncommon)
+      # Display sorted words (common first, then truncated uncommon)
       display_sorted_words(game.users[username].word_list_df)
 
       # Check if game is completed
