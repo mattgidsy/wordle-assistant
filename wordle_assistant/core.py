@@ -155,3 +155,63 @@ def sort_words(word_list_df: pd.DataFrame, by: str = "alphabetical", ascending: 
         print(f"Warning: Invalid sorting criteria '{by}', defaulting to alphabetical.")
         return word_list_df.sort_values(by="word", ascending=ascending).reset_index(drop=True)
 
+def get_letter_frequency(word_list_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates letter frequency across the dataset and assigns a letter frequency score to each word.
+
+    Args:
+      word_list_df (pd.DataFrame): The word list DataFrame.
+
+    Returns:
+      pd.DataFrame: The updated DataFrame with letter frequency scores in 'letter_freq' column.
+    """
+    if word_list_df.empty:
+        return word_list_df
+
+    # Count letter occurrences across all words
+    all_letters = "".join(word_list_df["word"])
+    letter_counts = Counter(all_letters)
+
+    # Normalize frequencies
+    total_letters = sum(letter_counts.values())
+    letter_freq_map = {letter: count / total_letters for letter, count in letter_counts.items()}
+
+    # Assign letter frequency score to each word (sum of unique letter frequencies)
+    word_list_df["letter_freq"] = word_list_df["word"].apply(
+        lambda word: sum(letter_freq_map[letter] for letter in set(word))  # Only count unique letters per word
+    )
+
+    return word_list_df
+
+def get_word_rank(word_list_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates word ranking based on letter frequency and prioritizes common words.
+
+    Args:
+      word_list_df (pd.DataFrame): The word list DataFrame.
+
+    Returns:
+      pd.DataFrame: The updated DataFrame with word rankings.
+    """
+    if word_list_df.empty:
+        return word_list_df
+
+    # Split into common and uncommon words
+    common_words_df = word_list_df[word_list_df["rarity"] == "common"].copy()
+    uncommon_words_df = word_list_df[word_list_df["rarity"] == "uncommon"].copy()
+
+    # Apply letter frequency calculation separately
+    common_words_df = get_letter_frequency(common_words_df)
+    uncommon_words_df = get_letter_frequency(uncommon_words_df)
+
+    # Boost all common words' rank to ensure they are always ranked higher
+    common_words_df["rank"] = common_words_df["letter_freq"] + 1  # Adding 1 as a boost
+    uncommon_words_df["rank"] = uncommon_words_df["letter_freq"]  # No boost for uncommon words
+
+    # Combine back into one DataFrame
+    ranked_df = pd.concat([common_words_df, uncommon_words_df]).reset_index(drop=True)
+
+    # Sort with common words always first, then by rank
+    ranked_df = ranked_df.sort_values(by=["rank", "rarity"], ascending=[False, True])
+
+    return ranked_df

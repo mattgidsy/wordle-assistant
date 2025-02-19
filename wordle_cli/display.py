@@ -75,3 +75,31 @@ def display_game_result(username: str, user):
         print(f"🎉 Congratulations {username}! You guessed the word! 🎉")
     else:
         print(f"❌ Game over. The correct word was: {user.answer}")
+
+def display_ranked_words(word_list_df: pd.DataFrame, max_words: int = 10):
+    """
+    Displays the top-ranked words in order with their rank scores, excluding eliminated words.
+
+    Args:
+      word_list_df (pd.DataFrame): The word list DataFrame.
+      max_words (int): Maximum number of words to display. Defaults to 10.
+    """
+    # Ensure ranking is calculated
+    if "rank" not in word_list_df.columns:
+        print("Error: No rank data available. Run get_word_rank() first.")
+        return
+
+    # Filter out eliminated words
+    valid_words_df = word_list_df[word_list_df["eliminated"] == False]
+
+    # Sort by rank (higher rank first) and limit display count
+    ranked_df = valid_words_df.sort_values(by="rank", ascending=False).head(max_words).reset_index(drop=True)
+
+    if ranked_df.empty:
+        print("\nNo valid words remaining.")
+        return
+
+    print("\nTop Ranked Words:")
+    for rank_position, row in enumerate(ranked_df.itertuples(index=False), start=1):
+        print(f"{rank_position}. {row.word} - Rank: {row.rank:.3f}")
+
