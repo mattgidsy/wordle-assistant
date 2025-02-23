@@ -86,7 +86,7 @@ class WordleGame:
         elif len(user.guesses) >= 6:
             user.mark_completed(word_found=False)
 
-        return letter_state_tuple
+        return letter_state_tuple #should append this to a letter_state list for the user
     
     def check_game_status(self) -> bool:
         """

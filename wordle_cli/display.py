@@ -61,8 +61,6 @@ def display_sorted_words(word_list_df: pd.DataFrame, max_uncommon: int = 10):
         print(f"\nUncommon words ({len(uncommon_words)} total, showing up to {max_uncommon}):")
         print(", ".join(uncommon_words[:max_uncommon]) + ("..." if len(uncommon_words) > max_uncommon else ""))
 
-
-
 def display_game_result(username: str, user):
     """
     Displays the game result (win/lose) for the user.
@@ -103,3 +101,22 @@ def display_ranked_words(word_list_df: pd.DataFrame, max_words: int = 10):
     for rank_position, row in enumerate(ranked_df.itertuples(index=False), start=1):
         print(f"{rank_position}. {row.word} - Rank: {row.rank:.3f}")
 
+def command_prompt(game, username):
+    """Handles post-guess commands from the user."""
+    while True:
+        print("Press Enter to continue or type a command (e.g., help):")
+        command = input().strip().lower()
+
+        if command == "help":
+            print('''List of Commands:
+    more: Displays more possible answers
+    quit: Exits the game''')
+        elif command == "more":
+            display_ranked_words(game.users[username].word_list_df, 100)
+        elif command == "quit" or command == "exit":
+            print("Exiting the game. Goodbye!")
+            return False  # Signal to exit the game
+        elif command == "":
+            return True  # Signal to continue the game
+        else:
+            print("Command unknown. Please enter a valid command or press Enter.")
